@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -75,6 +76,7 @@ find_package(catkin REQUIRED COMPONENTS
    actionlib_msgs
    geometry_msgs
    std_msgs
+   sensor_msgs
  )
 
 ################################################
@@ -129,6 +131,10 @@ add_dependencies(distTwoPoint csma_generate_messages_cpp)
 add_executable(csma src/csma.cpp)
 target_link_libraries(csma ${catkin_LIBRARIES})
 add_dependencies(csma csma_generate_messages_cpp)
+
+add_executable(waitPoint src/waitPoint.cpp)
+target_link_libraries(waitPoint ${catkin_LIBRARIES})
+#add_dependencies(waitPoint waitPoint_generate_messages_cpp)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
