@@ -22,5 +22,7 @@ melodic
 2. cd csma_ws/src
 3. git clone https://github.com/zxsedas/csma.git
 4. cd ~/csma_ws && devel/setup.bash
-5. rosrun csma distTwoPoint
+5. roslaunch csma dist_wp.launch
 6. rosrun csma csma
+
+- notice only accept first goal point, if execute second times,you need restart csma package.
