@@ -26,3 +26,4 @@ melodic
 6. rosrun csma csma
 
 - Notice only accept first goal point, if execute second times,you need restart csma package.
+![csma_test](https://user-images.githubusercontent.com/56986643/139579138-20b01229-bf19-48f9-8d37-17ba8a708999.gif)
