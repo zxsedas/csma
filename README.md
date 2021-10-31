@@ -1,15 +1,15 @@
 # csma
 
-#### linux
+#### Linux:
 Ubuntu18.04
 
-#### ROS version
+#### ROS version:
 melodic
 
-#### gitlab
+#### Gitlab
 > https://gitlab.com/lab314-iiot/most/most109/multi_turtlebot3
 
-#### tb3
+#### multi tb3
 ##### Gazebo
  > roslaunch turtlebot3_gazebo multi_turtlebot3.launch
 
