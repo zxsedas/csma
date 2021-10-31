@@ -1,0 +1,12 @@
+<launch>
+	<group>
+		<node pkg="csma" name="distNode" type="distTwoPoint"/>
+	</group>
+	<group>
+		<node pkg="csma" name="waitPointNode" type="waitPoint"/>
+	</group>
+	<group>
+		<node pkg="csma" name="waitRandomTimeNode" type="wait_random_time_server"/>
+	</group>
+	
+</launch>

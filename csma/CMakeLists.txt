@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   sensor_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -57,11 +58,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
+ add_service_files(
+   FILES
+   WaitRandomTime.srv
 #   Service2.srv
-# )
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -111,7 +112,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES csma
-#  CATKIN_DEPENDS actionlib_msgs geometry_msgs roscpp rospy std_msgs
+  CATKIN_DEPENDS actionlib_msgs geometry_msgs roscpp rospy std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -119,9 +120,7 @@ catkin_package(
 ## Build ##
 ###########
 
-add_executable(talker src/talker.cpp)
-target_link_libraries(talker ${catkin_LIBRARIES})
-add_dependencies(talker csma_generate_messages_cpp)
+
 
 
 add_executable(distTwoPoint src/dist_two_point_pub.cpp)
@@ -136,13 +135,22 @@ add_executable(waitPoint src/waitPoint.cpp)
 target_link_libraries(waitPoint ${catkin_LIBRARIES})
 #add_dependencies(waitPoint waitPoint_generate_messages_cpp)
 
+add_executable(wait_random_time_server src/wait_random_time_server.cpp)
+target_link_libraries(wait_random_time_server ${catkin_LIBRARIES})
+add_dependencies(wait_random_time_server ${PROJECT_NAME}_generate_messages_cpp)
+
+add_executable(wait_random_time_client src/wait_random_time_client.cpp)
+target_link_libraries(wait_random_time_client ${catkin_LIBRARIES})
+add_dependencies(wait_random_time_client ${PROJECT_NAME}_generate_messages_cpp)
+
+
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
 )
-
+include_directories("/usr/include/eigen3")
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/csma.cpp

@@ -32,7 +32,7 @@ void distanceTwoPointCal()
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "listener");
+    ros::init(argc, argv, "distTwoPoint");
     ros::NodeHandle n;
     ros::Publisher dist_pub = n.advertise<std_msgs::Float64>("distTwoPoint", 100);   
     ros::Subscriber sub_amcl_tb3_0 = n.subscribe<geometry_msgs::PoseWithCovarianceStamped>("tb3_0/amcl_pose", 100,tb3_0_poseAMCLCallback);
@@ -41,17 +41,16 @@ int main(int argc, char **argv)
 
 
     ros::Rate loop_rate(10);
+    std_msgs::Float64 msg;
+    ros::spinOnce();
+    ros::Duration(0.1).sleep();
     while(ros::ok())
     {
 	ros::spinOnce();
-	std_msgs::Float64 msg;
 	distanceTwoPointCal();
 	msg.data = distanceTwoPoint;
-	if(msg.data > 0)
-	{
-	    dist_pub.publish(msg);	
-	    ROS_INFO("publish: %lf", msg.data);
-	}	
+	dist_pub.publish(msg);	
+	//ROS_INFO("publish: %lf", msg.data);	
 	loop_rate.sleep();
     }
     
