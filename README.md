@@ -25,4 +25,4 @@ melodic
 5. roslaunch csma dist_wp.launch
 6. rosrun csma csma
 
-- notice only accept first goal point, if execute second times,you need restart csma package.
+- Notice only accept first goal point, if execute second times,you need restart csma package.
