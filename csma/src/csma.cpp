@@ -3,16 +3,17 @@
 #include "std_msgs/Float64.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "nav_msgs/Path.h"
 
 #include "csma/WaitRandomTime.h"
 #include <thread>
 
-#define tb3_between_distance 0.3
+#define tb3_between_distance 3.7
 using namespace std;
 
 
 int first_set_goal0 = 0, first_set_goal1 = 0;
-double distTwoPoint = 1;
+double distTwoPoint = 10;
 
 //tb3 current point
 struct currentPoint{
@@ -73,15 +74,82 @@ void tb1_goalCallback(const geometry_msgs::PoseStamped::ConstPtr& goal)
     }
     first_set_goal1++;
 }
+int tb0_length = 0, tb1_length = 0;
+int *occupy0=new int(0);
+int *occupy1=new int(0);
+void tb0_pathCallback(const nav_msgs::Path::ConstPtr& msg) 
+{ 
 
+	float length=0;
+	int touch=0;
+	for(auto i=0; i<msg->poses.size()-1;i++) 
+	{ 
+		float position_a_x = msg->poses[i].pose.position.x;
+    		float position_b_x = msg->poses[i+1].pose.position.x;
+    		float position_a_y = msg->poses[i].pose.position.y;
+    		float position_b_y = msg->poses[i+1].pose.position.y;
+		float distX = pow((position_b_x-position_a_x), 2.0);
+		float distY = pow((position_b_y-position_a_y), 2.0);
+		//ROS_INFO("%lf,  %lf", distX, distY);
+		length += pow((distX + distY), 0.5);
+		if(position_a_x >= -0.38 && position_a_x <= 2.8 && position_a_y >= 0 && position_a_y <= 0.75)
+		{
+			touch=1;
+		}
+	}
+	if(touch)
+	{
+		*occupy0=1;
+	}
+	else
+	{
+		*occupy0=0;
+	} 
+	tb0_length = length;
+	//ROS_INFO("length:%d", l);
+}
+void tb1_pathCallback(const nav_msgs::Path::ConstPtr& msg) 
+{ 
+
+	float length=0;
+	int touch=0;
+	for(auto i=0; i<msg->poses.size()-1;i++) 
+	{ 
+		float position_a_x = msg->poses[i].pose.position.x;
+    		float position_b_x = msg->poses[i+1].pose.position.x;
+    		float position_a_y = msg->poses[i].pose.position.y;
+    		float position_b_y = msg->poses[i+1].pose.position.y;
+		float distX = pow((position_b_x-position_a_x), 2.0);
+		float distY = pow((position_b_y-position_a_y), 2.0);
+		//ROS_INFO("%lf,  %lf", distX, distY);
+		length += pow((distX + distY), 0.5);
+		if(position_a_x >= -0.38 && position_a_x <= 2.8 && position_a_y >= 0 && position_a_y <= 0.75)
+		{
+			touch=1;
+		}
+	
+	} 
+	if(touch)
+	{
+		*occupy1=1;
+	}
+	else
+	{
+		*occupy1=0;
+	} 
+	tb1_length = length;
+	//ROS_INFO("length:%d", tb1_length);
+}
 
 class Tb_csma                 //individual tb3
 {
     private:
         ros::NodeHandle n;
-	    ros::Subscriber dp; //subscriber distance between two point
+	ros::Subscriber dp; //subscriber distance between two point
         ros::Subscriber wp; //subscriber waitPoint
         ros::Subscriber gp; //subscriber final goal point
+	ros::Subscriber pa;
+
         ros::Publisher tp0; //tb3 0 Publisher to goal
         ros::Publisher tp1; //tb3 1 Publisher to goal
         ros::ServiceClient client = n.serviceClient<csma::WaitRandomTime>("wait_random_time"); //wait_random_time client
@@ -95,22 +163,29 @@ class Tb_csma                 //individual tb3
         goal* tb3_goalPoint;
         //tb3 sleep time and flag
         int tb3_sleep_time = 0, flag = 0;      //flag is tb3_identity(tb3_0 == 0 so on..)
+	int* occupy=0;
+	int navigation=1;
     public:
         Tb_csma(){};
             Tb_csma(currentPoint* tb3_cp, goal* tb3_gp, int flag, string tb3_sub_goal)
             {
                 dp = n.subscribe("distTwoPoint", 100, distCallback);       //subscribe distTwoPoint
                 wp = n.subscribe("waitPoint", 100, waitPointCallback);     //subscribe waitPoint
+                
                 //which tb3 publish goal and sub_goal
                 if(flag == 0)
                 {
                     tp0 = n.advertise<geometry_msgs::PoseStamped>("/tb3_0/move_base_simple/goal", 100);
                     gp = n.subscribe<geometry_msgs::PoseStamped>(tb3_sub_goal, 100,  tb0_goalCallback);
+		    pa = n.subscribe<nav_msgs::Path>("/tb3_0/move_base/NavfnROS/plan", 100, tb0_pathCallback);
+		    occupy=occupy1;
                 }
                 else if(flag == 1)
                 {
                     tp1 = n.advertise<geometry_msgs::PoseStamped>("/tb3_1/move_base_simple/goal", 100);
                     gp = n.subscribe<geometry_msgs::PoseStamped>(tb3_sub_goal, 100,  tb1_goalCallback);
+		    pa = n.subscribe<nav_msgs::Path>("/tb3_1/move_base/NavfnROS/plan", 100, tb1_pathCallback);
+		    occupy=occupy0;
                 }
                 //tb3 current、goal point structure
                 tb3_currentPoint = tb3_cp;
@@ -130,13 +205,12 @@ class Tb_csma                 //individual tb3
             while(ros::ok())
             {
                 ros::spinOnce();
-                if(deadlock())                        //deadlock whether occur
+                if(deadlock() && *(this->occupy) && navigation > 0)                        //deadlock whether occur
                 {
-		            ROS_INFO("deadlock ocur!!");
+		    ROS_INFO("deadlock ocur!!");
                     tb3_sleep_time = callRandomTime();         //get randomSleepTime
-		            ROS_INFO("tb3_%d SLEEP:%ld", this->flag, tb3_sleep_time);
-		    
-
+		    clearOcuppy();		  
+		    ROS_INFO("tb3_%d SLEEP:%d", this->flag, tb3_sleep_time);
                     if(tb3_sleep_time == -1)                   //error return -1
                     {
                         ROS_INFO("tb3_sleep_time -1 error!!");
@@ -158,7 +232,11 @@ class Tb_csma                 //individual tb3
         }
         bool deadlock()                                           //judge deadlock occur
         {
-            return distTwoPoint <= tb3_between_distance;          // tb3 between distance <= 0.28;
+	    if(distTwoPoint <= tb3_between_distance)// tb3 between distance <= 3.25;
+            {
+		return true;
+	    }
+	    return false;          
         }
         int callRandomTime()                                      //call server get randomSleepTime
         {
@@ -184,11 +262,25 @@ class Tb_csma                 //individual tb3
             msg.pose.orientation.w = tb3_goalPoint->tb3_w;
             msg.pose.orientation.z = tb3_goalPoint->tb3_z;   
            
-            if(this->flag == 0)
-                tp0.publish(msg); 
-            else if(this->flag == 1)
-                tp1.publish(msg);
+            if(this->flag == 0 && !(*this->occupy))
+	    {
+		tp0.publish(msg);
+		navigation--;
+	    }   
+            else if(this->flag == 1 && !(*this->occupy))
+	    {
+		tp1.publish(msg);
+		navigation--;
+	    }
+                
         }
+	void clearOcuppy()
+	{
+		if(this->flag == 0)
+		    *occupy0=0;
+		else if(this->flag == 1)
+		    *occupy1=0;
+	}
 };
 
 class Control

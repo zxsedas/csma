@@ -27,7 +27,7 @@ void distanceTwoPointCal()
     double distY = pow( (tb3_0_poseAMCLy-tb3_1_poseAMCLy), 2.0);
     distanceTwoPoint = pow( (distX + distY), 0.5);
     //ROS_INFO("%lf   %lf", distX, distY);
-    //ROS_INFO("dist between two point: %lf", distanceTwoPoint);
+    ROS_INFO("dist between two point: %lf", distanceTwoPoint);
 }
 
 int main(int argc, char **argv)

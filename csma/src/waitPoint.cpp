@@ -1,10 +1,12 @@
 #include "ros/ros.h"
+#include "tf/tf.h"
 #include "geometry_msgs/PoseWithCovarianceStamped.h"
 #include "std_msgs/Float64.h"
 #include "std_msgs/Float64MultiArray.h"
 #include "sensor_msgs/LaserScan.h"
 #include <cmath>
 #include <vector>
+
 
 #include "laser_geometry/laser_geometry.h"
 #include "sensor_msgs/LaserScan.h"
@@ -13,8 +15,8 @@
 #include <boost/shared_ptr.hpp>
 
 #define PI 3.14159265
-#define laserStartAngle 0
-#define laserEndAngle 180
+#define laserStartAngle 90
+#define laserEndAngle 270
 sensor_msgs::LaserScan laser_msg;
 
 
@@ -24,12 +26,24 @@ float tb3_1_currentPositionX = 0, tb3_1_currentPositionY = 0, tb3_1_currentOrien
 float tb3_0_waitPointX = 0, tb3_0_waitPointY = 0;
 float tb3_1_waitPointX = 0, tb3_1_waitPointY = 0;
 
+double tb3_0_roll, tb3_0_pitch, tb3_0_yaw;
+double tb3_1_roll, tb3_1_pitch, tb3_1_yaw;
+
 void tb3_0_currentPosition(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msgAMCL)
 {
 	tb3_0_currentPositionX = msgAMCL->pose.pose.position.x;
 	tb3_0_currentPositionY = msgAMCL->pose.pose.position.y;
 	tb3_0_currentOrientationW = msgAMCL->pose.pose.orientation.w;
 	tb3_0_currentOrientationZ = msgAMCL->pose.pose.orientation.z;
+
+	tf::Quaternion q(
+		msgAMCL->pose.pose.orientation.x,
+		msgAMCL->pose.pose.orientation.y,
+		msgAMCL->pose.pose.orientation.z,
+		msgAMCL->pose.pose.orientation.w);
+	tf::Matrix3x3 m(q);
+	m.getRPY(tb3_0_roll, tb3_0_pitch, tb3_0_yaw);
+	
 }
 void tb3_1_currentPosition(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msgAMCL)
 {
@@ -37,6 +51,13 @@ void tb3_1_currentPosition(const geometry_msgs::PoseWithCovarianceStamped::Const
 	tb3_1_currentPositionY = msgAMCL->pose.pose.position.y;
 	tb3_1_currentOrientationW = msgAMCL->pose.pose.orientation.w;
 	tb3_1_currentOrientationZ = msgAMCL->pose.pose.orientation.z;
+	tf::Quaternion q(
+			msgAMCL->pose.pose.orientation.x,
+			msgAMCL->pose.pose.orientation.y,
+			msgAMCL->pose.pose.orientation.z,
+			msgAMCL->pose.pose.orientation.w);
+	tf::Matrix3x3 m(q);
+	m.getRPY(tb3_1_roll, tb3_1_pitch, tb3_1_yaw);
 }
 
 
@@ -63,10 +84,13 @@ void tb3_0_waitPoint(const sensor_msgs::LaserScan::ConstPtr& msg)
 	// }
 	
     }
-    tb3_0_waitPointX = -(abs((cos(maxIndex*PI/180) * max))/8); //cos*r
-    tb3_0_waitPointY = (sin(maxIndex*PI/180) * max)/8;
-	
-    //ROS_INFO("maxIndex: %d, max: %lf, x: %lf, y: %lf", maxIndex, max, x, y);
+    
+    int offset = tb3_0_yaw*180/PI;
+    int angle = (maxIndex+offset)*PI/180;
+    tb3_0_waitPointX = (cos(angle) * max)/8; //cos*r
+    tb3_0_waitPointY = (sin(angle) * max)/8;
+   	
+    //ROS_INFO("maxIndex: %d, max: %lf, x: %lf, y: %lf", maxIndex, max, tb3_0_waitPointX, tb3_0_waitPointY);
   
   
 }
@@ -95,9 +119,10 @@ void tb3_1_waitPoint(const sensor_msgs::LaserScan::ConstPtr& msg)
 	// }
 	
     }
-    
-    tb3_1_waitPointX = abs((cos(maxIndex*PI/180) * max))/8; //cos*r
-    tb3_1_waitPointY = (sin(maxIndex*PI/180) * max)/8;
+    int offset = tb3_1_yaw*180/PI;
+    int angle = (maxIndex+offset)*PI/180;
+    tb3_1_waitPointX = (cos(angle) * max)/8; //cos*r
+    tb3_1_waitPointY = (sin(angle) * max)/8;
     //ROS_INFO("TB3_1_X:%lf, TB3_1_Y:%lf ", tb3_1_waitPointX, tb3_1_waitPointY)
     //ROS_INFO("maxIndex: %d, max: %lf, x: %lf, y: %lf", maxIndex, max, tb3_1_waitPointX, tb3_1_waitPointY);
 
@@ -108,7 +133,6 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "waitPoint");
     ros::NodeHandle n;  
-   
 
 
     ros::Subscriber sub_waitPoint_tb3_0 = n.subscribe<sensor_msgs::LaserScan>("tb3_0/scan", 100,tb3_0_waitPoint);
