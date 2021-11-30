@@ -9,7 +9,7 @@ melodic
 #### multi robot github reference
 > https://github.com/airuchen/multi_turtlebot3
 
-#### multi tb3
+
 ##### Gazebo
  > roslaunch turtlebot3_gazebo multi_turtlebot3.launch
 
