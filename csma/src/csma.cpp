@@ -8,12 +8,21 @@
 #include "csma/WaitRandomTime.h"
 #include <thread>
 
-#define tb3_between_distance 3.7
+#define tb3_between_distance 4.12
+#define passage_start_x -0.42
+#define passage_end_x 2.9
+#define passage_start_y 0
+#define passage_end_y 0.75
 using namespace std;
 
 
 int first_set_goal0 = 0, first_set_goal1 = 0;
 double distTwoPoint = 10;
+int tb0_length = 0, tb1_length = 0;
+int *occupy0=new int(0);
+int *occupy1=new int(0);
+int* tb3_0_passage = new int(0);
+int* tb3_1_passage = new int(0);
 
 //tb3 current point
 struct currentPoint{
@@ -40,20 +49,34 @@ void distCallback(const std_msgs::Float64::ConstPtr& msg)                     //
 {
     distTwoPoint = msg->data;
 }
+void determine(currentPoint tb, int* passage)
+{
+    if(tb.tb3_x >= passage_start_x && tb.tb3_x <= passage_end_x && tb.tb3_y >= passage_start_y && tb.tb3_y <= passage_end_y)
+    {
+        *passage=1;	
+    }
+    else
+    {
+ 	*passage=0;
+    }
+}
+
 void waitPointCallback(const std_msgs::Float64MultiArray::ConstPtr& msg)     //echo waitPointCallback
 {
     tb3_0_currentPoint.tb3_x = msg->data[0] + msg->data[4]; //currentX + waitPointX
     tb3_0_currentPoint.tb3_y = msg->data[1] + msg->data[5]; //currentY + waitPointY
     tb3_0_currentPoint.tb3_w = msg->data[2];//orientation
     tb3_0_currentPoint.tb3_z = msg->data[3];
+    determine(tb3_0_currentPoint, tb3_0_passage);
 
     tb3_1_currentPoint.tb3_x = msg->data[6] + msg->data[10]; //currentX + waitPointX
     tb3_1_currentPoint.tb3_y = msg->data[7] + msg->data[11]; //currentY + waitPointY
     tb3_1_currentPoint.tb3_w = msg->data[8];//orientation
     tb3_1_currentPoint.tb3_z = msg->data[9];
+    determine(tb3_1_currentPoint, tb3_1_passage);
 }
 void tb0_goalCallback(const geometry_msgs::PoseStamped::ConstPtr& goal)
-{;
+{
     if(first_set_goal0 == 0)
     {
         tb3_0_goalPoint.tb3_x = goal->pose.position.x;
@@ -74,9 +97,7 @@ void tb1_goalCallback(const geometry_msgs::PoseStamped::ConstPtr& goal)
     }
     first_set_goal1++;
 }
-int tb0_length = 0, tb1_length = 0;
-int *occupy0=new int(0);
-int *occupy1=new int(0);
+
 void tb0_pathCallback(const nav_msgs::Path::ConstPtr& msg) 
 { 
 
@@ -92,7 +113,7 @@ void tb0_pathCallback(const nav_msgs::Path::ConstPtr& msg)
 		float distY = pow((position_b_y-position_a_y), 2.0);
 		//ROS_INFO("%lf,  %lf", distX, distY);
 		length += pow((distX + distY), 0.5);
-		if(position_a_x >= -0.38 && position_a_x <= 2.8 && position_a_y >= 0 && position_a_y <= 0.75)
+		if(position_a_x >= passage_start_x && position_a_x <= passage_end_x && position_a_y >= passage_start_y && position_a_y <= passage_end_y)
 		{
 			touch=1;
 		}
@@ -123,7 +144,7 @@ void tb1_pathCallback(const nav_msgs::Path::ConstPtr& msg)
 		float distY = pow((position_b_y-position_a_y), 2.0);
 		//ROS_INFO("%lf,  %lf", distX, distY);
 		length += pow((distX + distY), 0.5);
-		if(position_a_x >= -0.38 && position_a_x <= 2.8 && position_a_y >= 0 && position_a_y <= 0.75)
+		if(position_a_x >= passage_start_x && position_a_x <= passage_end_x && position_a_y >= passage_start_y && position_a_y <= passage_end_y)
 		{
 			touch=1;
 		}
@@ -163,8 +184,9 @@ class Tb_csma                 //individual tb3
         goal* tb3_goalPoint;
         //tb3 sleep time and flag
         int tb3_sleep_time = 0, flag = 0;      //flag is tb3_identity(tb3_0 == 0 so on..)
-	int* occupy=0;
-	int navigation=1;
+	int* in_passage=0;
+	int* another_occupy=0;
+	int navigation = 1;
     public:
         Tb_csma(){};
             Tb_csma(currentPoint* tb3_cp, goal* tb3_gp, int flag, string tb3_sub_goal)
@@ -178,14 +200,16 @@ class Tb_csma                 //individual tb3
                     tp0 = n.advertise<geometry_msgs::PoseStamped>("/tb3_0/move_base_simple/goal", 100);
                     gp = n.subscribe<geometry_msgs::PoseStamped>(tb3_sub_goal, 100,  tb0_goalCallback);
 		    pa = n.subscribe<nav_msgs::Path>("/tb3_0/move_base/NavfnROS/plan", 100, tb0_pathCallback);
-		    occupy=occupy1;
+		    in_passage=tb3_0_passage;
+		    another_occupy=occupy1;
                 }
                 else if(flag == 1)
                 {
                     tp1 = n.advertise<geometry_msgs::PoseStamped>("/tb3_1/move_base_simple/goal", 100);
                     gp = n.subscribe<geometry_msgs::PoseStamped>(tb3_sub_goal, 100,  tb1_goalCallback);
 		    pa = n.subscribe<nav_msgs::Path>("/tb3_1/move_base/NavfnROS/plan", 100, tb1_pathCallback);
-		    occupy=occupy0;
+		    in_passage=tb3_1_passage;
+		    another_occupy=occupy0;
                 }
                 //tb3 current、goal point structure
                 tb3_currentPoint = tb3_cp;
@@ -205,7 +229,7 @@ class Tb_csma                 //individual tb3
             while(ros::ok())
             {
                 ros::spinOnce();
-                if(deadlock() && *(this->occupy) && navigation > 0)                        //deadlock whether occur
+                if(deadlock() && !(*in_passage) && *(another_occupy) && navigation > 0)                        //deadlock whether occur
                 {
 		    ROS_INFO("deadlock ocur!!");
                     tb3_sleep_time = callRandomTime();         //get randomSleepTime
@@ -218,13 +242,12 @@ class Tb_csma                 //individual tb3
                     else
                     {
 			ROS_INFO("TB3_%d go to wait point(5s duration)",this->flag);
-                        ros::Duration(3).sleep();
+                        ros::Duration(5).sleep();
                         //sleep done
-                        ros::Duration(tb3_sleep_time).sleep();
-                        ROS_INFO("Tb3_%d_sleep_done!!", this->flag);              
+                        sleep(tb3_sleep_time);
                         //restart go to goal point
                         toFinalGoal(); 
-                        ROS_INFO("tb3_%d_restart navigation", this->flag);
+                        
                     }    
                 }
                 loop_rate.sleep();
@@ -250,7 +273,7 @@ class Tb_csma                 //individual tb3
 	        ROS_INFO("tb3_%d x:%lf, y:%lf", this->flag, tb3_currentPoint->tb3_x, tb3_currentPoint->tb3_y);
             if(client.call(srv))
             {
-		        ROS_INFO("TB3_%d CALL", this->flag);
+		ROS_INFO("TB3_%d CALL", this->flag);
                 return srv.response.time;
             }
             return -1;
@@ -262,15 +285,18 @@ class Tb_csma                 //individual tb3
             msg.pose.orientation.w = tb3_goalPoint->tb3_w;
             msg.pose.orientation.z = tb3_goalPoint->tb3_z;   
            
-            if(this->flag == 0 && !(*this->occupy))
+            if(this->flag == 0 && !(*another_occupy))
 	    {
 		tp0.publish(msg);
 		navigation--;
+		ROS_INFO("tb3_%d_restart navigation", this->flag);
 	    }   
-            else if(this->flag == 1 && !(*this->occupy))
+            else if(this->flag == 1 && !(*another_occupy))
 	    {
 		tp1.publish(msg);
 		navigation--;
+		ROS_INFO("tb3_%d_restart navigation", this->flag);
+		
 	    }
                 
         }
@@ -280,6 +306,11 @@ class Tb_csma                 //individual tb3
 		    *occupy0=0;
 		else if(this->flag == 1)
 		    *occupy1=0;
+	}
+	void sleep(int s)
+	{
+		ros::Duration(s).sleep();
+                ROS_INFO("Tb3_%d_sleep_done!!", this->flag); 
 	}
 };
 
